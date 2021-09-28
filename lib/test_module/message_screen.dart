@@ -69,13 +69,21 @@
 // }
 
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:avatar_glow/avatar_glow.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_sound_lite/public/flutter_sound_player.dart';
+import 'package:flutter_sound_lite/public/flutter_sound_recorder.dart';
+import 'package:flutter_sound_lite/public/tau.dart';
 import 'package:http/http.dart' as http;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:voice_pay/test_module/payment_info.dart';
+import 'package:voice_pay/test_module/voice_pay.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+//import 'ChatMessage.dart';
 import 'ChatMessage.dart';
 import 'components/body2.dart';
 import 'components/chat_input_field.dart';
@@ -332,18 +340,424 @@ _getUrl4(String text) async {
     print(response.statusCode);
   }
 }
+// class Data5 {
+//   List hypotheses;
+//   bool finalStr;
+//   Data5 ({this.hypotheses,this.finalStr});
+//   Data5.fromJson(Map<String, dynamic> json) {
+//     hypotheses = json['hypotheses'];
+//     finalStr = json['final'];
+//   }
+//
+//   Map<String, dynamic> toJson() {
+//     final Map<String, dynamic> data = new Map<String, dynamic>();
+//     data['hypotheses'] = this.hypotheses;
+//     return data;
+//   }
+// }
+String _text = '';
 
+class Data7 {
+  List hypotheses;
+  bool finalStr;
+  Data7 ({this.hypotheses,this.finalStr});
+  Data7.fromJson(Map<String, dynamic> json) {
+    hypotheses = json['hypotheses'];
+    finalStr = json['final'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['hypotheses'] = this.hypotheses;
+    return data;
+  }
+}
+class ResultResponse7 {
+  Data7 data;
+  int status;
+
+  ResultResponse7({
+    this.data,
+    this.status,
+  });
+
+  factory ResultResponse7.fromJson(Map<String, dynamic> json) {
+    return ResultResponse7(
+        status: json['status'],
+        data: json['result'] != null ? new Data7.fromJson(json['result']) : null
+    );
+  }
+}
+
+getTranscript(String response){
+  ResultResponse5.fromJson(jsonDecode(response));
+
+  List a = ResultResponse5.fromJson(jsonDecode(response)).data.hypotheses;
+  List list= a.map((array)=>array['transcript_normed']).toList();
+  _text = list.join("");
+  print("Text: $_text");
+}
+class ChatMessage2 {
+  final String text;
+  final ChatMessageType messageType;
+  final MessageStatus messageStatus;
+  final bool isSender;
+
+  ChatMessage2({
+    this.text = '',
+    this.messageType,
+    this.messageStatus,
+    this.isSender
+  });
+}
+typedef _Fn = void Function();
 
 class _MessagesScreen extends State<MessagesScreen> {
   stt.SpeechToText _speech;
   bool _isListening = false;
-  String _text = '';
+  String _text2='';
+  //---------------------------------------------
+  FlutterSoundPlayer _mPlayer = FlutterSoundPlayer();
+  FlutterSoundRecorder _mRecorder = FlutterSoundRecorder();
+  bool _mPlayerIsInited = false;
+  bool _mRecorderIsInited = false;
+  bool _mplaybackReady = false;
+  String _mPath;
+  StreamSubscription _mRecordingDataSubscription;
 
+
+  AudioPlayer audioPlayer = new AudioPlayer();
+  var _channel = WebSocketChannel.connect(
+    Uri.parse('wss://dev.interits.com/asr/stream/socket/16k/client/ws/speech?content-type=audio/x-raw,+layout=(string)interleaved,+rate=(int)44100,+format=(string)S16LE,+channels=(int)1'),
+  );
+  Future<void> _openRecorder() async {
+    var status = await Permission.microphone.request();
+    if (status != PermissionStatus.granted) {
+      throw RecordingPermissionException('Microphone permission not granted');
+    }
+    await _mRecorder.openAudioSession();
+    setState(() {
+      _mRecorderIsInited = true;
+    });
+  }
   @override
   void initState() {
     super.initState();
-    _speech = stt.SpeechToText();
+    //_speech = stt.SpeechToText();
+    _mPlayerIsInited = true;
+    _openRecorder();
   }
+  @override
+  void dispose() {
+
+    stopRecorder();
+    _mRecorder.closeAudioSession();
+    _mRecorder = null;
+    super.dispose();
+  }
+
+  Future<void> record() async {
+    assert(_mRecorderIsInited);
+    _isListening=true;
+    //  var sinkf = await createFile();
+    //var recordingDataController = BehaviorSubject<Food>();
+    var recordingDataController = StreamController<Food>();
+    //StreamController<Food> recordingDataController = StreamController<Food>.broadcast();
+    _mRecordingDataSubscription =
+        recordingDataController.stream.listen((buffer) {
+          if (buffer is FoodData) {
+            _channel.sink.add(buffer.data);
+            _channel.stream.listen(
+                  (dynamic message) {
+                setState(() {
+                  _text2 = message;
+                  getTranscript(_text2);
+                  if(_text!=null&&_text=="Đúng rồi"){
+                    demoChatMessages2.add(
+                        ChatMessage2(
+                          text: "Đúng rồi",
+                          messageType: ChatMessageType.text,
+                          messageStatus: MessageStatus.viewed,
+                          isSender: true,
+                        )
+                    );
+
+                    setState((){
+                      _isListening=false;
+                      stopRecorder();
+                      _play2();
+                    }
+                    );
+
+                  }else if(_text!=null&&_text=="Đúng vậy"){
+                    demoChatMessages2.add(
+                        ChatMessage2(
+                          text: "Đúng vậy",
+                          messageType: ChatMessageType.text,
+                          messageStatus: MessageStatus.viewed,
+                          isSender: true,
+                        )
+                    );
+
+                    setState((){
+                      _isListening=false;
+                      stopRecorder();
+                      _text="";
+                      _play3();
+                    }
+                    );
+                  }else if(_text!=null&&_text=="Mã xác nhận của tôi là 2368"){
+                    demoChatMessages2.add(
+                        ChatMessage2(
+                          text: "Mã xác nhận của tôi là 2368",
+                          messageType: ChatMessageType.text,
+                          messageStatus: MessageStatus.viewed,
+                          isSender: true,
+                        )
+                    );
+
+                    setState((){
+                      _isListening=false;
+                      stopRecorder();
+                      _text="";
+                      _play4();
+                    }
+                    );
+                  }
+                });
+                debugPrint('message $message');
+              },
+              onDone: () {
+                debugPrint('ws channel closed');
+
+
+
+              },
+              onError: (error) {
+                debugPrint('ws error $error');
+              },
+            );
+
+          }
+
+        });
+
+    // if(_text=="Đúng rồi"){
+    //   demoChatMessages2.add(
+    //     ChatMessage2(
+    //       text: "Giá món đồ bạn muốn mua là 64.99\$.\nBạn muốn thanh toán ngay bây giờ?",
+    //       messageType: ChatMessageType.text,
+    //       messageStatus: MessageStatus.viewed,
+    //       isSender: false,
+    //     ),
+    //   );
+    //   setState(() {
+    //     _isListening=false;
+    //   } );
+    //   await _getUrl2("Giá món đồ bạn muốn mua là 64 đô. Bạn muốn thanh toán ngay bây giờ?");
+    //   demoChatMessages2.add(
+    //       ChatMessage2(
+    //         text: "Giá món đồ bạn muốn mua là 64.99\$.\nBạn muốn thanh toán ngay bây giờ?",
+    //         messageType: ChatMessageType.text,
+    //         messageStatus: MessageStatus.viewed,
+    //         isSender: false,
+    //       )
+    //   );
+    //   if (myurl2 != null) {
+    //     audioPlayer2.play(myurl2, isLocal: true);
+    //     audioPlayer2.onPlayerCompletion.listen((event) {
+    //
+    //     });
+    //   }
+    // }
+
+    await _mRecorder.startRecorder(
+      toStream: recordingDataController.sink,
+      codec: Codec.pcm16,
+      numChannels: 1,
+      sampleRate: tSampleRate,
+    );
+    //setState(() {});
+  }
+  // --------------------- (it was very simple, wasn't it ?) -------------------
+
+  _play2() async {
+    demoChatMessages2.add(
+      ChatMessage2(
+        text: "Giá món đồ bạn muốn mua là 64.99\$.\nBạn muốn thanh toán ngay bây giờ?",
+        messageType: ChatMessageType.text,
+        messageStatus: MessageStatus.viewed,
+        isSender: false,
+      ),
+    );
+    setState(() {
+      _isListening=false;
+    } );
+    await _getUrl2("Giá món đồ bạn muốn mua là 64 đô. Bạn muốn thanh toán ngay bây giờ?");
+    // demoChatMessages2.add(
+    //     ChatMessage2(
+    //       text: "Giá món đồ bạn muốn mua là 64.99\$.\nBạn muốn thanh toán ngay bây giờ?",
+    //       messageType: ChatMessageType.text,
+    //       messageStatus: MessageStatus.viewed,
+    //       isSender: false,
+    //     )
+    // );
+    if (myurl2 != null) {
+      audioPlayer2.play(myurl2, isLocal: true);
+      audioPlayer2.onPlayerCompletion.listen((event) {
+
+      });
+    }
+  }
+  _play3() async {
+    demoChatMessages2.add(
+      ChatMessage2(
+        text: "Đọc câu sau để xác thực thanh \ntoán: \"Mã xác nhận của tôi là 2368",
+        messageType: ChatMessageType.text,
+        messageStatus: MessageStatus.viewed,
+        isSender: false,
+      ),
+    );
+    setState(() {
+      _isListening=false;
+    } );
+    await _getUrl3("Vui lòng đọc câu sau để xác thực thanh toán: Mã xác nhận của tôi là hai ba sáu tám");
+    // demoChatMessages2.add(
+    //     ChatMessage2(
+    //       text: "Giá món đồ bạn muốn mua là 64.99\$.\nBạn muốn thanh toán ngay bây giờ?",
+    //       messageType: ChatMessageType.text,
+    //       messageStatus: MessageStatus.viewed,
+    //       isSender: false,
+    //     )
+    // );
+    if (myurl3 != null) {
+      audioPlayer3.play(myurl3, isLocal: true);
+      audioPlayer3.onPlayerCompletion.listen((event) {
+
+      });
+    }
+  }
+  _play4() async {
+    demoChatMessages2.add(
+      ChatMessage2(
+        text: "Mã xác nhận và nhận dạng giọng \nchính xác với độ khớp giọng 99%.",
+        messageType: ChatMessageType.text,
+        messageStatus: MessageStatus.viewed,
+        isSender: false,
+      ),
+    );
+    demoChatMessages2.add(
+      ChatMessage2(
+        text: "Thanh toán thành công",
+        messageType: ChatMessageType.text,
+        messageStatus: MessageStatus.viewed,
+        isSender: false,
+      ),
+
+    );
+    demoChatMessages2.add(
+      ChatMessage2(
+        text: "Cảm ơn đã sử dụng dịch vụ VoicePay",
+        messageType: ChatMessageType.text,
+        messageStatus: MessageStatus.not_view,
+        isSender: false,
+      ),
+    );
+    setState(() {
+      _isListening=false;
+    } );
+    await _getUrl4("Mã xác nhận và nhận dạng giọng chính xác với độ khớp giọng 99%. Thanh toán thành công. Cảm ơn bạn vì đã sử dụng dịch vụ của Voice Pay!");
+    // demoChatMessages2.add(
+    //     ChatMessage2(
+    //       text: "Giá món đồ bạn muốn mua là 64.99\$.\nBạn muốn thanh toán ngay bây giờ?",
+    //       messageType: ChatMessageType.text,
+    //       messageStatus: MessageStatus.viewed,
+    //       isSender: false,
+    //     )
+    // );
+    if (myurl4 != null) {
+      audioPlayer4.play(myurl4, isLocal: true);
+      audioPlayer4.onPlayerCompletion.listen((event) {
+
+      });
+    }
+  }
+
+
+  Future<void> stopRecorder() async {
+    await _mRecorder.stopRecorder();
+
+    if (_mRecordingDataSubscription != null) {
+
+      _mRecordingDataSubscription = null;
+    }
+    _mplaybackReady = true;
+  }
+
+  // void _listen() async {
+  //   if (!_isListening) {
+  //     bool available = await _speech.initialize(
+  //       onStatus: (val) => print('onStatus: $val'),
+  //       onError: (val) => print('onError: $val'),
+  //     );
+  //     if (available) {
+  //       setState(() => _isListening = true);
+  //       _speech.listen(
+  //         onResult: (val) => setState(() {
+  //           _text = val.recognizedWords;
+  //           if(_text!=null&&_text=="Tôi muốn thanh toán"){
+  //             setState(() => _isListening=false);
+  //
+  //             Navigator.push(
+  //                 context, MaterialPageRoute(builder: (context) => MessagesScreen()));
+  //           }
+  //         }),
+  //       );
+  //     }
+  //   } else {
+  //     setState(() => _isListening = false);
+  //     _speech.stop();
+  //   }
+  // }
+  _Fn getRecorderFn() {
+    if (!_mRecorderIsInited) {
+      return null;
+    }
+    return _mRecorder.isStopped
+        ? record
+        : () {
+      stopRecorder().then((value) => setState(() {
+        _isListening=false;
+
+
+
+      }));
+
+    };
+  }
+
+
+
+  //---------------------------------------------------
+  List demoChatMessages2 = [
+  ChatMessage2(
+  text: "Xin chào Thắng,",
+  messageType: ChatMessageType.text,
+  messageStatus: MessageStatus.viewed,
+  isSender: false,
+  ),
+  ChatMessage2(
+  text: "Có phải bạn muốn mua Tay Cầm PS4?",
+  messageType: ChatMessageType.text,
+  messageStatus: MessageStatus.viewed,
+  isSender: false,
+  ),
+  ];
+  @override
+  // void initState() {
+  //   super.initState();
+  //   _speech = stt.SpeechToText();
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -355,9 +769,9 @@ class _MessagesScreen extends State<MessagesScreen> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: kDefaultPadding),
                     child: ListView.builder(
-                      itemCount: demoChatMessages.length,
+                      itemCount: demoChatMessages2.length,
                       itemBuilder: (context, index) =>
-                          Message(message: demoChatMessages[index]),
+                          Message(message: demoChatMessages2[index]),
                     ),
                   ),
                 ),
@@ -382,7 +796,7 @@ class _MessagesScreen extends State<MessagesScreen> {
                           repeatPauseDuration: const Duration(milliseconds: 100),
                           repeat: true,
                           child: FloatingActionButton(
-                            onPressed: _listen,
+                            onPressed: getRecorderFn(),
                             child: Icon(_isListening ? Icons.mic : Icons.mic_none),
                           ),
 
@@ -436,16 +850,7 @@ class _MessagesScreen extends State<MessagesScreen> {
     );
   }
 
-  void _onClick() async{
-    await _getUrl1("Xin chào thắng, Có phải bạn muốn mua Tay cầm PS4");
 
-    if(myurl1!=null){
-      audioPlayer1.play(myurl1,isLocal:true);
-      audioPlayer1.onPlayerCompletion.listen((event) {
-        _text="";
-      });
-    }
-  }
 
   void _listen() async {
 
@@ -461,9 +866,29 @@ class _MessagesScreen extends State<MessagesScreen> {
           onResult: (val) => setState(() async {
             _text = val.recognizedWords;
             print("Text: " +_text);
+
             if(_text!=null&&_text=="đúng rồi"||_text=="Đúng rồi") {
-              setState(() => _isListening=false);
+
+              demoChatMessages2.add(
+                  ChatMessage2(
+                text: "Đúng rồi",
+                messageType: ChatMessageType.text,
+                messageStatus: MessageStatus.viewed,
+                isSender: true,
+              )
+              );
+              setState(() {
+                _isListening=false;
+              } );
               await _getUrl2("Giá món đồ bạn muốn mua là 64 đô. Bạn muốn thanh toán ngay bây giờ?");
+              demoChatMessages2.add(
+                  ChatMessage2(
+                    text: "Giá món đồ bạn muốn mua là 64.99\$.\nBạn muốn thanh toán ngay bây giờ?",
+                    messageType: ChatMessageType.text,
+                    messageStatus: MessageStatus.viewed,
+                    isSender: false,
+                  )
+              );
               if (myurl2 != null) {
                 audioPlayer2.play(myurl2, isLocal: true);
                 audioPlayer2.onPlayerCompletion.listen((event) {
@@ -471,8 +896,25 @@ class _MessagesScreen extends State<MessagesScreen> {
                 });
               }
             }else if(_text!=null&&_text=="Đúng vậy"||_text=="đúng vậy") {
+              demoChatMessages2.add(
+                  ChatMessage2(
+                    text: "Đúng vậy",
+                    messageType: ChatMessageType.text,
+                    messageStatus: MessageStatus.viewed,
+                    isSender: true,
+                  )
+              );
               setState(() => _isListening=false);
               await _getUrl3("Vui lòng đọc câu sau để xác thực thanh toán: Mã xác nhận của tôi là hai ba sáu tám");
+              demoChatMessages2.add(
+                  ChatMessage2(
+                    text: "Đọc câu sau để xác thực thanh \ntoán: \"Mã xác nhận của tôi là 2368",
+                    messageType: ChatMessageType.text,
+                    messageStatus: MessageStatus.viewed,
+                    isSender: false,
+                  )
+              );
+
               if (myurl3 != null) {
                 audioPlayer3.play(myurl3, isLocal: true);
                 audioPlayer3.onPlayerCompletion.listen((event) {
@@ -480,8 +922,41 @@ class _MessagesScreen extends State<MessagesScreen> {
                 });
               }
             } else if(_text!=null&&_text=="mã xác nhận của tôi là 23 68"||_text=="mã xác nhận của tôi là 2 3 6 8"||_text=="mã xác nhận của tôi là 2368") {
+              demoChatMessages2.add(
+                  ChatMessage2(
+                    text: "Mã xác nhận của tôi là 2368",
+                    messageType: ChatMessageType.text,
+                    messageStatus: MessageStatus.viewed,
+                    isSender: true,
+                  )
+              );
               setState(() => _isListening=false);
               await _getUrl4("Mã xác nhận và nhận dạng giọng chính xác với độ khớp giọng 99%. Thanh toán thành công. Cảm ơn bạn vì đã sử dụng dịch vụ của Voice Pay!");
+              demoChatMessages2.add(
+                  ChatMessage2(
+                    text: "Mã xác nhận và nhận dạng giọng \nchính xác với độ khớp giọng 99%.",
+                    messageType: ChatMessageType.text,
+                    messageStatus: MessageStatus.viewed,
+                    isSender: false,
+                  ),
+              );
+              demoChatMessages2.add(
+                  ChatMessage2(
+                      text: "Thanh toán thành công",
+                      messageType: ChatMessageType.text,
+                      messageStatus: MessageStatus.viewed,
+                      isSender: false,
+                    ),
+
+              );
+              demoChatMessages2.add(
+                ChatMessage2(
+                  text: "Cảm ơn đã sử dụng dịch vụ VoicePay",
+                  messageType: ChatMessageType.text,
+                  messageStatus: MessageStatus.not_view,
+                  isSender: false,
+                ),
+              );
               if (myurl4 != null) {
                 audioPlayer4.play(myurl4, isLocal: true);
                 audioPlayer4.onPlayerCompletion.listen((event) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../ChatMessage.dart';
+import '../message_screen.dart';
 import 'constants.dart';
 
 
@@ -11,7 +12,7 @@ class TextMessage extends StatelessWidget {
     this.message,
   }) : super(key: key);
 
-  final ChatMessage message;
+  final ChatMessage2 message;
 
   @override
   Widget build(BuildContext context) {

@@ -139,7 +139,7 @@ _getUrl(String text) async {
 typedef _Fn = void Function();
 const int tSampleRate = 44000;
 class _VoicePay extends State<VoicePay>{
-  String _text2 = "";
+  String _text2 = "",_text3="";
   FlutterSoundPlayer _mPlayer = FlutterSoundPlayer();
   FlutterSoundRecorder _mRecorder = FlutterSoundRecorder();
   bool _mPlayerIsInited = false;
@@ -193,13 +193,85 @@ class _VoicePay extends State<VoicePay>{
         recordingDataController.stream.listen((buffer) {
           if (buffer is FoodData) {
             _channel.sink.add(buffer.data);
-            _channel.stream.asBroadcastStream().listen(
+            _channel.stream.listen(
                   (dynamic message) {
-                _text2 = message;
+
+                setState((){
+                  _text2 = message;
+
+                  getTranscript(_text2);
+
+                  // Timer mytimer = Timer.periodic(Duration(seconds: 2), (timer) {
+                  //   //code to run on every 5 seconds
+                  //   _text3 = _text2;
+                  //   // setState(() {
+                  //   //
+                  //   // });
+                  //   print("Text3: $_text3");
+                  // });
+                  //
+                  // Timer mytimer2 = Timer.periodic(Duration(seconds: 4), (timer) {
+                  //   //code to run on every 5 seconds
+                  //   print("Text2: $_text2");
+                  //     if(_text2==_text3) {
+                  //       stopRecorder();
+                  //       setState(() {
+                  //         _isListening = false;
+                  //         //stopRecorder();
+                  //       });
+                  //     }
+                  // });
+                  //
+                  //
+                  // if(_isListening == false){
+                  //   mytimer.cancel();
+                  //   mytimer2.cancel();
+                  // }
+
+                  // Timer(Duration(seconds: 2), () {
+                  //   //_channel.sink.add('EOS');
+                  //
+                  // });
+                    // Timer(Duration(seconds: 2), () {
+                    //   //_channel.sink.add('EOS');
+                    //   if(_text2==_text3){
+                    //     stopRecorder();
+                    //     setState(() {
+                    //       _isListening = false;
+                    //       //stopRecorder();
+                    //     });
+                    //
+                    //   }
+                    // });
+
+
+
+
+                  if(_text!=null&&_text=="Tôi muốn thanh toán"){
+                    stopRecorder();
+                    _channel.sink.close();
+                    setState((){
+                      _isListening=false;
+
+                    }
+
+                    );
+
+                    Timer(Duration(seconds: 2), () {
+                      _onClick();
+                      // 5 seconds over, navigate to Page2.
+                      Navigator.push(
+                          context, MaterialPageRoute(builder: (context) => MessagesScreen()));
+                    });
+
+                  }
+                });
                 debugPrint('message $message');
               },
               onDone: () {
                 debugPrint('ws channel closed');
+
+                //_channel.sink.close();
 
 
               },
@@ -208,6 +280,7 @@ class _VoicePay extends State<VoicePay>{
               },
             );
           }
+
         });
 
 
@@ -217,7 +290,7 @@ class _VoicePay extends State<VoicePay>{
       numChannels: 1,
       sampleRate: tSampleRate,
     );
-    setState(() {});
+    //setState(() {});
   }
   // --------------------- (it was very simple, wasn't it ?) -------------------
 
@@ -231,54 +304,43 @@ class _VoicePay extends State<VoicePay>{
     _mplaybackReady = true;
   }
 
-  void _listen() async {
-    if (!_isListening) {
-      bool available = await _speech.initialize(
-        onStatus: (val) => print('onStatus: $val'),
-        onError: (val) => print('onError: $val'),
-      );
-      if (available) {
-        setState(() => _isListening = true);
-        _speech.listen(
-          onResult: (val) => setState(() {
-            _text = val.recognizedWords;
-            if(_text!=null&&_text=="Tôi muốn thanh toán"){
-              setState(() => _isListening=false);
-
-              Navigator.push(
-                  context, MaterialPageRoute(builder: (context) => MessagesScreen()));
-            }
-          }),
-        );
-      }
-    } else {
-      setState(() => _isListening = false);
-      _speech.stop();
-    }
-  }
+  // void _listen() async {
+  //   if (!_isListening) {
+  //     bool available = await _speech.initialize(
+  //       onStatus: (val) => print('onStatus: $val'),
+  //       onError: (val) => print('onError: $val'),
+  //     );
+  //     if (available) {
+  //       setState(() => _isListening = true);
+  //       _speech.listen(
+  //         onResult: (val) => setState(() {
+  //           _text = val.recognizedWords;
+  //           if(_text!=null&&_text=="Tôi muốn thanh toán"){
+  //             setState(() => _isListening=false);
+  //
+  //             Navigator.push(
+  //                 context, MaterialPageRoute(builder: (context) => MessagesScreen()));
+  //           }
+  //         }),
+  //       );
+  //     }
+  //   } else {
+  //     setState(() => _isListening = false);
+  //     _speech.stop();
+  //   }
+  // }
   _Fn getRecorderFn() {
-
-    // if (!_mRecorderIsInited) {
-    //   return null;
-    // }
+    if (!_mRecorderIsInited) {
+      return null;
+    }
     return _mRecorder.isStopped
         ? record
         : () {
       stopRecorder().then((value) => setState(() {
+          _isListening=false;
 
-        getTranscript(_text2);
 
-        if(_text!=null&&_text=="Tôi muốn thanh toán"){
 
-          setState(() => _isListening=false);
-          Timer(Duration(seconds: 2), () {
-            _onClick();
-            // 5 seconds over, navigate to Page2.
-            Navigator.push(
-                context, MaterialPageRoute(builder: (context) => MessagesScreen()));
-          });
-
-        }
       }));
 
     };

@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 
 
+//import '../ChatMessage.dart';
 import '../ChatMessage.dart';
+import '../message_screen.dart';
 import 'audio_message.dart';
 import 'constants.dart';
 import 'text_message.dart';
@@ -14,16 +16,16 @@ class Message extends StatelessWidget {
      this.message,
   }) : super(key: key);
 
-  final ChatMessage message;
+  final ChatMessage2 message;
 
   @override
   Widget build(BuildContext context) {
-    Widget messageContaint(ChatMessage message) {
+    Widget messageContaint(ChatMessage2 message) {
       switch (message.messageType) {
         case ChatMessageType.text:
           return TextMessage(message: message);
         case ChatMessageType.audio:
-          return AudioMessage(message: message);
+         // return AudioMessage(message: message);
         case ChatMessageType.video:
           return VideoMessage();
         default:
